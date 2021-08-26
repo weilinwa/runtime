@@ -495,8 +495,12 @@ mono_interp_get_imethod (MonoMethod *method, MonoError *error)
 		imethod->param_types [i] = mini_get_underlying_type (sig->params [i]);
 
 	jit_mm_lock (jit_mm);
-	if (!mono_internal_hash_table_lookup (&jit_mm->interp_code_hash, method))
+	InterpMethod *old_imethod;
+	if (!((old_imethod = mono_internal_hash_table_lookup (&jit_mm->interp_code_hash, method))))
 		mono_internal_hash_table_insert (&jit_mm->interp_code_hash, method, imethod);
+	else {
+		imethod = old_imethod; /* leak the newly allocated InterpMethod to the mempool */
+	}
 	jit_mm_unlock (jit_mm);
 
 	imethod->prof_flags = mono_profiler_get_call_instrumentation_flags (imethod->method);
@@ -5808,7 +5812,7 @@ MINT_IN_CASE(MINT_BRTRUE_I8_SP) ZEROP_SP(gint64, !=); MINT_IN_BREAK;
 		}
 		MINT_IN_CASE(MINT_CONV_OVF_I4_R8) {
 			double val = LOCAL_VAR (ip [2], double);
-			if (mono_isnan (val) || mono_trunc (val) != (gint32)val)
+			if (val < G_MININT32 || val > G_MAXINT32 || isnan (val))
 				THROW_EX (mono_get_exception_overflow (), ip);
 			LOCAL_VAR (ip [1], gint32) = (gint32)val;
 			ip += 3;
@@ -5840,7 +5844,7 @@ MINT_IN_CASE(MINT_BRTRUE_I8_SP) ZEROP_SP(gint64, !=); MINT_IN_BREAK;
 		}
 		MINT_IN_CASE(MINT_CONV_OVF_U4_R8) {
 			double val = LOCAL_VAR (ip [2], double);
-			if (mono_isnan (val) || mono_trunc (val) != (guint32)val)
+			if (val < 0 || val > G_MAXUINT32 || isnan (val))
 				THROW_EX (mono_get_exception_overflow (), ip);
 			LOCAL_VAR (ip [1], gint32) = (guint32) val;
 			ip += 3;
@@ -5880,7 +5884,7 @@ MINT_IN_CASE(MINT_BRTRUE_I8_SP) ZEROP_SP(gint64, !=); MINT_IN_BREAK;
 		}
 		MINT_IN_CASE(MINT_CONV_OVF_I2_R4) {
 			float val = LOCAL_VAR (ip [2], float);
-			if (mono_isnan (val) || mono_trunc (val) != (gint16)val)
+			if (val < G_MININT16 || val > G_MAXINT16 || isnan (val))
 				THROW_EX (mono_get_exception_overflow (), ip);
 			LOCAL_VAR (ip [1], gint32) = (gint16) val;
 			ip += 3;
@@ -5888,7 +5892,7 @@ MINT_IN_CASE(MINT_BRTRUE_I8_SP) ZEROP_SP(gint64, !=); MINT_IN_BREAK;
 		}
 		MINT_IN_CASE(MINT_CONV_OVF_I2_R8) {
 			double val = LOCAL_VAR (ip [2], double);
-			if (mono_isnan (val) || mono_trunc (val) != (gint16)val)
+			if (val < G_MININT16 || val > G_MAXINT16 || isnan (val))
 				THROW_EX (mono_get_exception_overflow (), ip);
 			LOCAL_VAR (ip [1], gint32) = (gint16) val;
 			ip += 3;
@@ -5912,7 +5916,7 @@ MINT_IN_CASE(MINT_BRTRUE_I8_SP) ZEROP_SP(gint64, !=); MINT_IN_BREAK;
 		}
 		MINT_IN_CASE(MINT_CONV_OVF_U2_R4) {
 			float val = LOCAL_VAR (ip [2], float);
-			if (mono_isnan (val) || mono_trunc (val) != (guint16)val)
+			if (val < 0 || val > G_MAXUINT16 || isnan (val))
 				THROW_EX (mono_get_exception_overflow (), ip);
 			LOCAL_VAR (ip [1], gint32) = (guint16) val;
 			ip += 3;
@@ -5920,7 +5924,7 @@ MINT_IN_CASE(MINT_BRTRUE_I8_SP) ZEROP_SP(gint64, !=); MINT_IN_BREAK;
 		}
 		MINT_IN_CASE(MINT_CONV_OVF_U2_R8) {
 			double val = LOCAL_VAR (ip [2], double);
-			if (mono_isnan (val) || mono_trunc (val) != (guint16)val)
+			if (val < 0 || val > G_MAXUINT16 || isnan (val))
 				THROW_EX (mono_get_exception_overflow (), ip);
 			LOCAL_VAR (ip [1], gint32) = (guint16) val;
 			ip += 3;
@@ -5960,7 +5964,7 @@ MINT_IN_CASE(MINT_BRTRUE_I8_SP) ZEROP_SP(gint64, !=); MINT_IN_BREAK;
 		}
 		MINT_IN_CASE(MINT_CONV_OVF_I1_R4) {
 			float val = LOCAL_VAR (ip [2], float);
-			if (mono_isnan (val) || mono_trunc (val) != (gint8)val)
+			if (val < G_MININT8 || val > G_MAXINT8 || isnan (val))
 				THROW_EX (mono_get_exception_overflow (), ip);
 			LOCAL_VAR (ip [1], gint32) = (gint8) val;
 			ip += 3;
@@ -5968,7 +5972,7 @@ MINT_IN_CASE(MINT_BRTRUE_I8_SP) ZEROP_SP(gint64, !=); MINT_IN_BREAK;
 		}
 		MINT_IN_CASE(MINT_CONV_OVF_I1_R8) {
 			double val = LOCAL_VAR (ip [2], double);
-			if (mono_isnan (val) || mono_trunc (val) != (gint8)val)
+			if (val < G_MININT8 || val > G_MAXINT8 || isnan (val))
 				THROW_EX (mono_get_exception_overflow (), ip);
 			LOCAL_VAR (ip [1], gint32) = (gint8) val;
 			ip += 3;
@@ -5992,7 +5996,7 @@ MINT_IN_CASE(MINT_BRTRUE_I8_SP) ZEROP_SP(gint64, !=); MINT_IN_BREAK;
 		}
 		MINT_IN_CASE(MINT_CONV_OVF_U1_R4) {
 			float val = LOCAL_VAR (ip [2], float);
-			if (mono_isnan (val) || mono_trunc (val) != (guint8)val)
+			if (val < 0 || val > G_MAXUINT8 || isnan (val))
 				THROW_EX (mono_get_exception_overflow (), ip);
 			LOCAL_VAR (ip [1], gint32) = (guint8) val;
 			ip += 3;
@@ -6000,7 +6004,7 @@ MINT_IN_CASE(MINT_BRTRUE_I8_SP) ZEROP_SP(gint64, !=); MINT_IN_BREAK;
 		}
 		MINT_IN_CASE(MINT_CONV_OVF_U1_R8) {
 			double val = LOCAL_VAR (ip [2], double);
-			if (mono_isnan (val) || mono_trunc (val) != (guint8)val)
+			if (val < 0 || val > G_MAXUINT8 || isnan (val))
 				THROW_EX (mono_get_exception_overflow (), ip);
 			LOCAL_VAR (ip [1], gint32) = (guint8) val;
 			ip += 3;
